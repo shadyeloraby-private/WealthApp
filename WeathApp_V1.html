@@ -1,0 +1,656 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WealthApp</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--bg4:#1e2a40;
+  --green:#00d68f;--green2:#00b87a;--green3:rgba(0,214,143,0.12);
+  --text:#e8eaf0;--text2:#8892a4;--text3:#5c6478;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --red:#ff6b6b;--amber:#f6c90e;--blue:#4d9eff;
+  --card-r:14px;--font:'Inter',sans-serif
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px;line-height:1.5}
+h1,h2,h3,h4{font-weight:600;letter-spacing:-0.02em}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:100}
+.logo{font-size:18px;font-weight:700;color:var(--green);padding:16px 20px 16px 0;margin-right:16px;border-right:1px solid var(--border);letter-spacing:-0.03em}
+.logo span{color:var(--text2);font-weight:400}
+.nav-tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.nav-tabs::-webkit-scrollbar{display:none}
+.tab{padding:16px 14px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.page{display:none;padding:24px 20px;max-width:900px;margin:0 auto}
+.page.active{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:20px}
+.card-sm{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.metric{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative}
+.metric .label{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.metric .val{font-size:22px;font-weight:700;color:var(--text)}
+.metric .sub{font-size:11px;color:var(--text2);margin-top:4px}
+.metric.green .val{color:var(--green)}
+.metric.red .val{color:var(--red)}
+.metric.amber .val{color:var(--amber)}
+.edit-btn{position:absolute;top:12px;right:12px;background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:11px;padding:3px 8px;cursor:pointer;transition:.2s}
+.edit-btn:hover{border-color:var(--green);color:var(--green)}
+.inline-edit{display:none;margin-top:10px;gap:6px;align-items:center}
+.inline-edit.open{display:flex}
+.inline-edit input{flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;color:var(--text);font-size:13px;outline:none}
+.inline-edit input:focus{border-color:var(--green)}
+.inline-edit button{padding:7px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none}
+.save-inline{background:var(--green);color:#0a0e1a}
+.cancel-inline{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)!important}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+label{font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:5px}
+input,select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;transition:.2s}
+input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(0,214,143,.15)}
+select option{background:var(--bg3)}
+.btn{padding:11px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--green);color:#0a0e1a}
+.btn-primary:hover{background:var(--green2);transform:translateY(-1px)}
+.btn-danger{background:rgba(255,107,107,.15);color:var(--red);border:1px solid rgba(255,107,107,.3)}
+.btn-danger:hover{background:rgba(255,107,107,.25)}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:6px}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:12px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:var(--green3);color:var(--green)}
+.badge-red{background:rgba(255,107,107,.12);color:var(--red)}
+.badge-amber{background:rgba(246,201,14,.12);color:var(--amber)}
+.freedom-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-top:6px}
+.freedom-fill{height:100%;background:linear-gradient(90deg,var(--green),#00b87a);border-radius:4px;transition:.6s}
+.scenario{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center}
+.scenario.highlight{border-color:var(--green);background:var(--green3)}
+.scenario .months{font-size:36px;font-weight:700;color:var(--green);line-height:1}
+.scenario .rate-label{font-size:12px;color:var(--text2);margin-top:6px}
+.scenario .rate-val{font-size:14px;font-weight:600;color:var(--text);margin-top:2px}
+.section-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.alert-green{background:var(--green3);border:1px solid rgba(0,214,143,.3);color:var(--green)}
+.alert-red{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.25);color:var(--red)}
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+.up{color:var(--green)}.down{color:var(--red)}
+.empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
+.source-tag{font-size:10px;color:var(--text3);margin-top:3px}
+@media(max-width:480px){.grid4{grid-template-columns:1fr 1fr}.logo{font-size:15px}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Wealth<span>App</span></div>
+  <div class="nav-tabs">
+    <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="showTab('tracker')">Monthly</div>
+    <div class="tab" onclick="showTab('commitments')">Commitments</div>
+    <div class="tab" onclick="showTab('freedom')">Freedom</div>
+    <div class="tab" onclick="showTab('history')">History</div>
+  </div>
+</nav>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px">
+    <div>
+      <h2 style="font-size:20px">Financial Overview</h2>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px">Your wealth at a glance</div>
+    </div>
+    <div id="dash-date" style="font-size:12px;color:var(--text3)"></div>
+  </div>
+
+  <!-- QUICK ENTRY PANEL -->
+  <div class="card" style="margin-bottom:16px;border-color:rgba(0,214,143,0.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="section-title" style="margin-bottom:0">Quick Entry</div>
+      <span style="font-size:11px;color:var(--text3)">Edit any value directly on the dashboard</span>
+    </div>
+    <div class="grid3">
+      <div>
+        <label>Net Worth (AED)</label>
+        <div style="display:flex;gap:8px">
+          <input id="qe-networth" type="number" placeholder="e.g. 250000" style="flex:1"/>
+        </div>
+      </div>
+      <div>
+        <label>Monthly Income (AED)</label>
+        <input id="qe-income" type="number" placeholder="e.g. 25000"/>
+      </div>
+      <div>
+        <label>Monthly Spend (AED)</label>
+        <input id="qe-spend" type="number" placeholder="e.g. 18000"/>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="saveQuickEntry()">Update Dashboard</button>
+      <div id="qe-preview" style="font-size:12px;color:var(--text2)"></div>
+    </div>
+  </div>
+
+  <div class="grid4" style="margin-bottom:16px">
+    <div class="metric green">
+      <div class="label">Net Worth</div>
+      <div class="val" id="d-networth">AED 0</div>
+      <div class="sub source-tag" id="d-networth-src">not set</div>
+    </div>
+    <div class="metric">
+      <div class="label">Monthly Income</div>
+      <div class="val" id="d-income">AED 0</div>
+      <div class="sub source-tag" id="d-income-src">not set</div>
+    </div>
+    <div class="metric red">
+      <div class="label">Monthly Spend</div>
+      <div class="val" id="d-spent">AED 0</div>
+      <div class="sub source-tag" id="d-spent-src">not set</div>
+    </div>
+    <div class="metric green">
+      <div class="label">Monthly Saved</div>
+      <div class="val" id="d-saved">AED 0</div>
+      <div class="sub" id="d-saved-src">income − spend</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="section-title">Savings Rate</div>
+      <div style="display:flex;align-items:center;gap:20px">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+          <circle id="ring-circle" cx="55" cy="55" r="46" fill="none" stroke="var(--green)" stroke-width="10"
+            stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="289"
+            transform="rotate(-90 55 55)" style="transition:.8s ease"/>
+          <text x="55" y="51" text-anchor="middle" fill="var(--green)" font-size="18" font-weight="700" id="ring-pct">0%</text>
+          <text x="55" y="66" text-anchor="middle" fill="var(--text2)" font-size="10">saved</text>
+        </svg>
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Goal: 30% savings</div>
+          <div id="ring-status" style="font-size:13px;color:var(--text)">—</div>
+          <div style="margin-top:12px">
+            <div style="font-size:11px;color:var(--text2)">Commitments burden</div>
+            <div id="d-burden" style="font-size:15px;font-weight:600;color:var(--amber)">AED 0/mo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Freedom Score</div>
+      <div id="freedom-score-val" style="font-size:36px;font-weight:700;color:var(--green);margin-bottom:4px">0%</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="freedom-score-sub">Set a freedom target to begin</div>
+      <div class="freedom-bar"><div class="freedom-fill" id="freedom-fill" style="width:0%"></div></div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text2)">Target: <span id="d-target" style="color:var(--text);font-weight:600">—</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title">Savings Trend</div>
+    <div style="position:relative;height:180px">
+      <canvas id="trendChart" role="img" aria-label="Monthly savings trend">Savings trend</canvas>
+    </div>
+  </div>
+
+  <div id="dash-alert"></div>
+</div>
+
+<!-- MONTHLY TRACKER -->
+<div id="page-tracker" class="page">
+  <h2 style="font-size:20px;margin-bottom:6px">Monthly Tracker</h2>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Log each month to build your history and trend</div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="section-title">Add Month Entry</div>
+    <div class="form-row">
+      <div><label>Month Name</label><input id="t-month" placeholder="e.g. January 2025"/></div>
+      <div><label>Income (AED)</label><input id="t-income" type="number" placeholder="0"/></div>
+    </div>
+    <div class="form-row">
+      <div><label>Previous Balance (AED)</label><input id="t-prev" type="number" placeholder="0"/></div>
+      <div><label>Current Balance (AED)</label><input id="t-curr" type="number" placeholder="0"/></div>
+    </div>
+    <div id="t-preview" style="display:none;margin-bottom:14px">
+      <div class="grid3">
+        <div class="card-sm"><div class="label" style="font-size:11px;color:var(--text2)">Amount Spent</div><div id="tp-spent" style="font-size:18px;font-weight:700;color:var(--red)"></div></div>
+        <div class="card-sm"><div class="label" style="font-size:11px;color:var(--text2)">Amount Saved</div><div id="tp-saved" style="font-size:18px;font-weight:700;color:var(--green)"></div></div>
+        <div class="card-sm"><div class="label" style="font-size:11px;color:var(--text2)">Savings Rate</div><div id="tp-rate" style="font-size:18px;font-weight:700;color:var(--amber)"></div></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveMonth()">Save Entry</button>
+    <span id="t-msg" style="font-size:12px;color:var(--green);margin-left:12px"></span>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Monthly History</div>
+    <div id="tracker-table"><div class="empty">No entries yet. Add your first month above.</div></div>
+  </div>
+</div>
+
+<!-- COMMITMENTS -->
+<div id="page-commitments" class="page">
+  <h2 style="font-size:20px;margin-bottom:6px">Commitments</h2>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Track recurring financial obligations</div>
+
+  <div class="grid2" style="margin-bottom:16px;align-items:start">
+    <div class="card">
+      <div class="section-title">Add Commitment</div>
+      <div style="margin-bottom:12px"><label>Name</label><input id="c-name" placeholder="e.g. Rent, Car loan…"/></div>
+      <div class="form-row">
+        <div><label>Amount</label><input id="c-amount" type="number" placeholder="0"/></div>
+        <div><label>Currency</label><select id="c-currency"><option value="AED">AED</option><option value="EGP">EGP</option></select></div>
+      </div>
+      <div style="margin-bottom:14px"><label>Frequency</label>
+        <select id="c-freq"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option></select>
+      </div>
+      <button class="btn btn-primary" onclick="addCommitment()">Add Commitment</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Settings</div>
+      <div style="margin-bottom:16px">
+        <label>EGP → AED Rate</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="c-rate" type="number" step="0.001" placeholder="0.072" style="flex:1"/>
+          <button class="btn btn-primary btn-sm" onclick="saveRate()">Set</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Current: <span id="rate-display">—</span></div>
+      </div>
+      <hr class="divider" style="margin:14px 0">
+      <div class="metric green"><div class="label">Total Monthly Burden</div><div class="val" id="total-burden">AED 0</div><div class="sub">All commitments → AED/month</div></div>
+      <div style="margin-top:12px" id="burden-impact"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Your Commitments</div>
+    <div id="commitments-list"><div class="empty">No commitments added yet.</div></div>
+  </div>
+</div>
+
+<!-- FREEDOM CALCULATOR -->
+<div id="page-freedom" class="page">
+  <h2 style="font-size:20px;margin-bottom:6px">Freedom Calculator</h2>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:20px">How long until you reach financial freedom?</div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="section-title">Set Your Target</div>
+    <div class="form-row">
+      <div><label>Freedom Target (AED)</label><input id="f-target" type="number" placeholder="1000000"/></div>
+      <div><label>Monthly Savings Override (AED) <span style="color:var(--text3)">(optional)</span></label><input id="f-savings" type="number" placeholder="auto from data"/></div>
+    </div>
+    <button class="btn btn-primary" onclick="calcFreedom()">Calculate</button>
+  </div>
+
+  <div id="freedom-result" style="display:none">
+    <div class="section-title">Your 3 Scenarios</div>
+    <div class="grid3" style="margin-bottom:20px" id="scenarios"></div>
+    <div class="card" id="freedom-detail"></div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div id="page-history" class="page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <h2 style="font-size:20px">Full History</h2>
+      <div style="font-size:13px;color:var(--text2)">All monthly entries</div>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="if(confirm('Clear all history?')){clearHistory()}">Clear All</button>
+  </div>
+  <div class="card">
+    <div id="history-table"><div class="empty">No entries yet.</div></div>
+  </div>
+</div>
+
+<script>
+let state={months:[],commitments:[],egpRate:0.072,freedomTarget:0,manual:{networth:null,income:null,spend:null}};
+const S=k=>localStorage.getItem(k);
+const SS=(k,v)=>localStorage.setItem(k,v);
+let trendChart=null;
+
+function load(){
+  try{
+    const d=JSON.parse(S('wealthapp_v1')||'{}');
+    state={
+      months:d.months||[],
+      commitments:d.commitments||[],
+      egpRate:d.egpRate||0.072,
+      freedomTarget:d.freedomTarget||0,
+      manual:d.manual||{networth:null,income:null,spend:null}
+    };
+  }catch(e){}
+  document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-AE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('c-rate').value=state.egpRate;
+  document.getElementById('rate-display').textContent='1 EGP = '+state.egpRate+' AED';
+  if(state.freedomTarget)document.getElementById('f-target').value=state.freedomTarget;
+  // Pre-fill quick entry with stored manual values
+  if(state.manual.networth!=null)document.getElementById('qe-networth').value=state.manual.networth;
+  if(state.manual.income!=null)document.getElementById('qe-income').value=state.manual.income;
+  if(state.manual.spend!=null)document.getElementById('qe-spend').value=state.manual.spend;
+  renderAll();
+}
+function save(){SS('wealthapp_v1',JSON.stringify(state));}
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelector(`[onclick="showTab('${t}')"]`).classList.add('active');
+  document.getElementById('page-'+t).classList.add('active');
+  if(t==='dashboard')renderDashboard();
+}
+
+const fmt=(n,d=0)=>new Intl.NumberFormat('en-AE',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const fmtAED=n=>'AED '+fmt(n);
+
+/* QUICK ENTRY */
+// Live preview as user types
+['qe-networth','qe-income','qe-spend'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',updateQEPreview);
+});
+function updateQEPreview(){
+  const inc=parseFloat(document.getElementById('qe-income').value)||0;
+  const sp=parseFloat(document.getElementById('qe-spend').value)||0;
+  const saved=inc-sp;
+  const rate=inc>0?(saved/inc*100):0;
+  if(inc||sp){
+    document.getElementById('qe-preview').textContent=
+      'Saved: '+fmtAED(Math.round(saved))+' · Rate: '+rate.toFixed(1)+'%';
+  } else {
+    document.getElementById('qe-preview').textContent='';
+  }
+}
+function saveQuickEntry(){
+  const nw=document.getElementById('qe-networth').value;
+  const inc=document.getElementById('qe-income').value;
+  const sp=document.getElementById('qe-spend').value;
+  state.manual.networth=nw!==''?parseFloat(nw):null;
+  state.manual.income=inc!==''?parseFloat(inc):null;
+  state.manual.spend=sp!==''?parseFloat(sp):null;
+  save();
+  renderDashboard();
+  // Brief confirmation flash
+  const btn=event.target;
+  btn.textContent='Saved!';btn.style.background='var(--green2)';
+  setTimeout(()=>{btn.textContent='Update Dashboard';btn.style.background='';},1800);
+}
+
+/* DERIVE VALUES: manual overrides tracker, tracker is fallback */
+function getNetworth(){
+  if(state.manual.networth!=null)return{val:state.manual.networth,src:'manually set'};
+  const last=state.months.length?state.months[state.months.length-1]:null;
+  return last?{val:last.curr,src:'from tracker: '+last.month}:{val:0,src:'not set'};
+}
+function getIncome(){
+  if(state.manual.income!=null)return{val:state.manual.income,src:'manually set'};
+  const last=state.months.length?state.months[state.months.length-1]:null;
+  return last?{val:last.income,src:'from tracker: '+last.month}:{val:0,src:'not set'};
+}
+function getSpend(){
+  if(state.manual.spend!=null)return{val:state.manual.spend,src:'manually set'};
+  const last=state.months.length?state.months[state.months.length-1]:null;
+  return last?{val:Math.abs(last.spent),src:'from tracker: '+last.month}:{val:0,src:'not set'};
+}
+function getSaved(){
+  const inc=getIncome().val;
+  const sp=getSpend().val;
+  return inc-sp;
+}
+
+/* MONTHLY TRACKER */
+['t-income','t-prev','t-curr'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',previewMonth);
+});
+function previewMonth(){
+  const inc=parseFloat(document.getElementById('t-income').value)||0;
+  const prev=parseFloat(document.getElementById('t-prev').value)||0;
+  const curr=parseFloat(document.getElementById('t-curr').value)||0;
+  if(!inc&&!prev&&!curr){document.getElementById('t-preview').style.display='none';return;}
+  const saved=curr-prev;
+  const spent=inc-saved;
+  const rate=inc>0?(saved/inc)*100:0;
+  document.getElementById('tp-spent').textContent=fmtAED(Math.max(0,spent));
+  document.getElementById('tp-saved').textContent=fmtAED(saved);
+  document.getElementById('tp-rate').textContent=rate.toFixed(1)+'%';
+  document.getElementById('t-preview').style.display='block';
+}
+function saveMonth(){
+  const month=document.getElementById('t-month').value.trim();
+  const income=parseFloat(document.getElementById('t-income').value)||0;
+  const prev=parseFloat(document.getElementById('t-prev').value)||0;
+  const curr=parseFloat(document.getElementById('t-curr').value)||0;
+  if(!month||!income){
+    document.getElementById('t-msg').style.color='var(--red)';
+    document.getElementById('t-msg').textContent='Month name and income required.';return;
+  }
+  const saved=curr-prev;
+  const spent=income-saved;
+  const rate=income>0?(saved/income)*100:0;
+  state.months.push({id:Date.now(),month,income,prev,curr,saved,spent,rate,date:new Date().toISOString()});
+  save();
+  ['t-month','t-income','t-prev','t-curr'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('t-preview').style.display='none';
+  document.getElementById('t-msg').style.color='var(--green)';
+  document.getElementById('t-msg').textContent='Saved!';
+  setTimeout(()=>document.getElementById('t-msg').textContent='',2500);
+  renderAll();
+}
+
+/* COMMITMENTS */
+function addCommitment(){
+  const name=document.getElementById('c-name').value.trim();
+  const amount=parseFloat(document.getElementById('c-amount').value)||0;
+  const currency=document.getElementById('c-currency').value;
+  const freq=document.getElementById('c-freq').value;
+  if(!name||!amount)return;
+  state.commitments.push({id:Date.now(),name,amount,currency,freq});
+  save();document.getElementById('c-name').value='';document.getElementById('c-amount').value='';
+  renderAll();
+}
+function deleteCommitment(id){state.commitments=state.commitments.filter(c=>c.id!==id);save();renderAll();}
+function saveRate(){
+  const r=parseFloat(document.getElementById('c-rate').value);
+  if(!r)return;
+  state.egpRate=r;
+  document.getElementById('rate-display').textContent='1 EGP = '+r+' AED';
+  save();renderAll();
+}
+function monthlyBurden(){
+  return state.commitments.reduce((sum,c)=>{
+    const aed=c.currency==='EGP'?c.amount*state.egpRate:c.amount;
+    return sum+(c.freq==='quarterly'?aed/3:aed);
+  },0);
+}
+
+/* FREEDOM */
+function calcFreedom(){
+  const target=parseFloat(document.getElementById('f-target').value)||0;
+  if(!target)return;
+  state.freedomTarget=target;save();
+  const networth=getNetworth().val;
+  let savings=parseFloat(document.getElementById('f-savings').value)||0;
+  if(!savings){
+    if(state.months.length){
+      const recent=state.months.slice(-3);
+      savings=recent.reduce((s,m)=>s+m.saved,0)/recent.length;
+    } else {
+      savings=getSaved();
+    }
+  }
+  const remaining=Math.max(0,target-networth);
+  const scenarios=[
+    {label:'Current rate',rate:savings,mod:0},
+    {label:'+10% savings',rate:savings*1.1,mod:10},
+    {label:'+20% savings',rate:savings*1.2,mod:20}
+  ];
+  document.getElementById('scenarios').innerHTML=scenarios.map((s,i)=>{
+    const mos=s.rate>0?Math.ceil(remaining/s.rate):9999;
+    const yrs=(mos/12).toFixed(1);
+    return `<div class="scenario${i===0?' highlight':''}">
+      <div class="months">${mos>=9999?'∞':mos}</div>
+      <div class="rate-label">${mos<9999?'months ('+yrs+'y)':'—'}</div>
+      <div class="rate-val">${s.label}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">AED ${fmt(Math.round(s.rate))}/mo</div>
+    </div>`;
+  }).join('');
+  const pctDone=target>0?Math.min(100,(networth/target)*100):0;
+  document.getElementById('freedom-detail').innerHTML=`
+    <div class="section-title">Progress to Freedom</div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px">
+      <span>Current: ${fmtAED(Math.round(networth))}</span><span>Target: ${fmtAED(Math.round(target))}</span>
+    </div>
+    <div class="freedom-bar" style="height:12px"><div class="freedom-fill" style="width:${pctDone.toFixed(1)}%"></div></div>
+    <div style="font-size:13px;color:var(--green);font-weight:600;margin-top:8px">${pctDone.toFixed(1)}% achieved</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:4px">Need ${fmtAED(Math.round(remaining))} more</div>`;
+  document.getElementById('freedom-result').style.display='block';
+  renderDashboard();
+}
+
+/* RENDER */
+function renderAll(){renderDashboard();renderTrackerTable();renderCommitments();renderHistory();}
+
+function renderDashboard(){
+  const nw=getNetworth();
+  const inc=getIncome();
+  const sp=getSpend();
+  const saved=getSaved();
+  const rate=inc.val>0?(saved/inc.val)*100:0;
+  const burden=monthlyBurden();
+
+  document.getElementById('d-networth').textContent=fmtAED(Math.round(nw.val));
+  document.getElementById('d-networth-src').textContent=nw.src;
+  document.getElementById('d-income').textContent=fmtAED(Math.round(inc.val));
+  document.getElementById('d-income-src').textContent=inc.src;
+  document.getElementById('d-spent').textContent=fmtAED(Math.round(sp.val));
+  document.getElementById('d-spent-src').textContent=sp.src;
+  document.getElementById('d-saved').textContent=fmtAED(Math.round(saved));
+  document.getElementById('d-saved-src').textContent=inc.val||sp.val?'income − spend':'not set';
+  document.getElementById('d-burden').textContent=fmtAED(Math.round(burden))+'/mo';
+
+  // Ring
+  const goal=30;
+  const pctOfGoal=Math.min(100,(rate/goal)*100);
+  const offset=289-(289*pctOfGoal/100);
+  document.getElementById('ring-circle').style.strokeDashoffset=offset.toFixed(1);
+  document.getElementById('ring-pct').textContent=rate.toFixed(0)+'%';
+  document.getElementById('ring-status').textContent=rate>=goal?'Goal achieved!':rate.toFixed(1)+'% of 30% goal';
+
+  // Freedom
+  const ft=state.freedomTarget;
+  const fScore=ft>0?Math.min(100,(nw.val/ft)*100):0;
+  document.getElementById('freedom-score-val').textContent=fScore.toFixed(1)+'%';
+  document.getElementById('freedom-score-sub').textContent=ft>0?('of AED '+fmt(Math.round(ft))+' target'):'Set a freedom target in Freedom tab';
+  document.getElementById('freedom-fill').style.width=fScore.toFixed(1)+'%';
+  document.getElementById('d-target').textContent=ft>0?fmtAED(Math.round(ft)):'Not set';
+
+  // Alert
+  const alertDiv=document.getElementById('dash-alert');
+  if(!state.months.length&&state.manual.income==null){
+    alertDiv.innerHTML='<div class="alert alert-green">Welcome! Enter your income, spending and net worth in the Quick Entry panel above, or log months in the Monthly tab.</div>';
+  } else if(rate<10&&(inc.val||sp.val)){
+    alertDiv.innerHTML='<div class="alert alert-red">Savings rate is below 10%. Consider reviewing your commitments.</div>';
+  } else if(rate>=30){
+    alertDiv.innerHTML='<div class="alert alert-green">Excellent! You are hitting your 30% savings goal.</div>';
+  } else {
+    alertDiv.innerHTML='';
+  }
+
+  // Trend chart
+  const ms=state.months.slice(-6);
+  if(trendChart)trendChart.destroy();
+  if(ms.length>0){
+    trendChart=new Chart(document.getElementById('trendChart'),{
+      type:'bar',
+      data:{
+        labels:ms.map(m=>m.month.split(' ')[0]),
+        datasets:[
+          {label:'Income',data:ms.map(m=>Math.round(m.income)),backgroundColor:'rgba(77,158,255,0.25)',borderColor:'#4d9eff',borderWidth:1.5,borderRadius:4},
+          {label:'Saved',data:ms.map(m=>Math.round(m.saved)),backgroundColor:'rgba(0,214,143,0.3)',borderColor:'#00d68f',borderWidth:1.5,borderRadius:4}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'AED '+fmt(c.raw)}}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8892a4',font:{size:11}}},
+          y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#8892a4',font:{size:11},callback:v=>'AED '+fmt(v)}}
+        }
+      }
+    });
+  }
+}
+
+function renderTrackerTable(){
+  const ms=[...state.months].reverse();
+  const el=document.getElementById('tracker-table');
+  if(!ms.length){el.innerHTML='<div class="empty">No entries yet.</div>';return;}
+  el.innerHTML=`<table><thead><tr><th>Month</th><th>Income</th><th>Spent</th><th>Saved</th><th>Rate</th><th>Trend</th></tr></thead><tbody>
+  ${ms.map((m,i)=>{
+    const prevM=state.months[state.months.length-2-i];
+    const trend=prevM?(m.rate>prevM.rate?'<span class="up">▲</span>':'<span class="down">▼</span>'):'—';
+    const rClass=m.rate>=30?'badge-green':m.rate>=15?'badge-amber':'badge-red';
+    return `<tr>
+      <td style="font-weight:500">${m.month}</td>
+      <td>${fmtAED(Math.round(m.income))}</td>
+      <td style="color:var(--red)">${fmtAED(Math.round(Math.abs(m.spent)))}</td>
+      <td style="color:var(--green)">${fmtAED(Math.round(m.saved))}</td>
+      <td><span class="badge ${rClass}">${m.rate.toFixed(1)}%</span></td>
+      <td>${trend}</td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+function renderCommitments(){
+  const burden=monthlyBurden();
+  document.getElementById('total-burden').textContent=fmtAED(Math.round(burden));
+  const lastIncome=getIncome().val;
+  const impactEl=document.getElementById('burden-impact');
+  if(lastIncome>0){
+    const bPct=(burden/lastIncome*100).toFixed(1);
+    impactEl.innerHTML=`<div style="font-size:12px;color:var(--text2)">${bPct}% of income<br><span style="color:var(--text3)">Leaves AED ${fmt(Math.round(lastIncome-burden))} discretionary</span></div>`;
+  }else{impactEl.innerHTML='';}
+  const el=document.getElementById('commitments-list');
+  if(!state.commitments.length){el.innerHTML='<div class="empty">No commitments added yet.</div>';return;}
+  el.innerHTML=`<table><thead><tr><th>Name</th><th>Amount</th><th>Frequency</th><th>AED/Month</th><th></th></tr></thead><tbody>
+  ${state.commitments.map(c=>{
+    const aed=c.currency==='EGP'?c.amount*state.egpRate:c.amount;
+    const monthly=c.freq==='quarterly'?aed/3:aed;
+    return `<tr>
+      <td style="font-weight:500">${c.name}</td>
+      <td>${fmt(c.amount)} ${c.currency}</td>
+      <td><span class="badge ${c.freq==='monthly'?'badge-green':'badge-amber'}">${c.freq}</span></td>
+      <td style="font-weight:600">${fmtAED(Math.round(monthly))}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteCommitment(${c.id})">Remove</button></td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+function renderHistory(){
+  const ms=[...state.months].reverse();
+  const el=document.getElementById('history-table');
+  if(!ms.length){el.innerHTML='<div class="empty">No entries yet.</div>';return;}
+  el.innerHTML=`<table><thead><tr><th>Month</th><th>Income</th><th>Prev Bal</th><th>Curr Bal</th><th>Spent</th><th>Saved</th><th>Rate</th><th></th></tr></thead><tbody>
+  ${ms.map(m=>`<tr>
+    <td style="font-weight:500">${m.month}</td>
+    <td>${fmtAED(Math.round(m.income))}</td>
+    <td>${fmtAED(Math.round(m.prev))}</td>
+    <td>${fmtAED(Math.round(m.curr))}</td>
+    <td style="color:var(--red)">${fmtAED(Math.round(Math.abs(m.spent)))}</td>
+    <td style="color:var(--green)">${fmtAED(Math.round(m.saved))}</td>
+    <td><span class="badge ${m.rate>=30?'badge-green':m.rate>=15?'badge-amber':'badge-red'}">${m.rate.toFixed(1)}%</span></td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteEntry(${m.id})">✕</button></td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
+function deleteEntry(id){state.months=state.months.filter(m=>m.id!==id);save();renderAll();}
+function clearHistory(){state.months=[];save();renderAll();}
+
+load();
+</script>
+</body></html>
