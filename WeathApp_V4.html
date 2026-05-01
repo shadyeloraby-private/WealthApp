@@ -1,6 +1,7 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WealthApp</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -511,17 +512,115 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 function pwStrong(pw){return pw.length>=8&&/[A-Z]/.test(pw)&&/[0-9]/.test(pw)&&/[^A-Za-z0-9]/.test(pw);}
 
-/* ══ DB ══ */
-function getIndex(){try{return JSON.parse(localStorage.getItem('wa4_index')||'[]');}catch(e){return[];}}
-function saveIndex(i){localStorage.setItem('wa4_index',JSON.stringify(i));}
-function getUserData(u){try{return JSON.parse(localStorage.getItem('wa4_u_'+u)||'null');}catch(e){return null;}}
-function saveUserData(u,d){localStorage.setItem('wa4_u_'+u,JSON.stringify(d));}
-function deleteUserData(u){localStorage.removeItem('wa4_u_'+u);saveIndex(getIndex().filter(x=>x.username!==u));}
+/* ══ SUPABASE CLIENT ══ */
+const SUPABASE_URL='https://szgdbqdemwxwhxyacpyg.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6Z2RicWRlbXd4d2h4eWFjcHlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTE2NTAsImV4cCI6MjA5Mjg2NzY1MH0.c4iV6jvriKCTCfw5_taYAGKgcGx0QchDxAQFbpOrLxg';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+/* ══ DB (Supabase) ══ */
+// In-memory mirror of the active user. saveActive() updates this synchronously
+// so the rest of the app keeps working with the same shape it always did;
+// every mutation site explicitly pushes its delta to Supabase.
+let _USERS_INDEX=[]; // [{username, name}]
+let _CURRENT_USER_DATA=null;
+
 function newUserData(name,nw,inc){return{name,networth:parseFloat(nw)||0,income:parseFloat(inc)||0,months:[],bills:[],goals:[],egpRate:0.072,spendBudget:0,piggyBank:0};}
 
+// ── User directory ─────────────────────────────────────────────
+async function dbListUsers(){
+  const{data,error}=await sb.from('users').select('username,name').order('created_at',{ascending:true});
+  if(error){console.error('dbListUsers',error);return[];}
+  return data||[];
+}
+async function dbGetUser(username){
+  const{data,error}=await sb.from('users').select('*').eq('username',username).maybeSingle();
+  if(error){console.error('dbGetUser',error);return null;}
+  return data;
+}
+async function dbCreateUser(username,d){
+  const row={username,name:d.name,networth:d.networth,income:d.income,egp_rate:d.egpRate,spend_budget:d.spendBudget,piggy_bank:d.piggyBank,pw_hash:d.pwHash};
+  const{error}=await sb.from('users').insert(row);
+  if(error){console.error('dbCreateUser',error);throw error;}
+}
+async function dbUpdateUserMeta(username,fields){
+  // Map JS shape → DB shape
+  const map={name:'name',networth:'networth',income:'income',egpRate:'egp_rate',spendBudget:'spend_budget',piggyBank:'piggy_bank',pwHash:'pw_hash'};
+  const row={};for(const k in fields){if(map[k])row[map[k]]=fields[k];}
+  if(!Object.keys(row).length)return;
+  const{error}=await sb.from('users').update(row).eq('username',username);
+  if(error)console.error('dbUpdateUserMeta',error);
+}
+async function dbDeleteUser(username){
+  const{error}=await sb.from('users').delete().eq('username',username);
+  if(error)console.error('dbDeleteUser',error);
+}
+
+// ── Months ─────────────────────────────────────────────────────
+async function dbListMonths(username){
+  const{data,error}=await sb.from('months').select('*').eq('username',username);
+  if(error){console.error('dbListMonths',error);return[];}
+  return(data||[]).map(r=>({id:Number(r.id),month:r.month,year:r.year,income:Number(r.income)||0,prev:Number(r.prev)||0,curr:Number(r.curr)||0,saved:Number(r.saved)||0,spent:Number(r.spent)||0,rate:Number(r.rate)||0,incDate:r.inc_date||''}));
+}
+async function dbUpsertMonth(username,m){
+  const row={id:m.id,username,month:m.month,year:m.year,income:m.income,prev:m.prev,curr:m.curr,saved:m.saved,spent:m.spent,rate:m.rate,inc_date:m.incDate||null};
+  const{error}=await sb.from('months').upsert(row,{onConflict:'id'});
+  if(error)console.error('dbUpsertMonth',error);
+}
+async function dbDeleteMonth(id){
+  const{error}=await sb.from('months').delete().eq('id',id);
+  if(error)console.error('dbDeleteMonth',error);
+}
+async function dbDeleteAllMonths(username){
+  const{error}=await sb.from('months').delete().eq('username',username);
+  if(error)console.error('dbDeleteAllMonths',error);
+}
+
+// ── Bills ──────────────────────────────────────────────────────
+async function dbListBills(username){
+  const{data,error}=await sb.from('bills').select('*').eq('username',username);
+  if(error){console.error('dbListBills',error);return[];}
+  return(data||[]).map(r=>({id:Number(r.id),name:r.name,amt:Number(r.amt)||0,cur:r.cur,freq:r.freq,cat:r.cat,day:r.day}));
+}
+async function dbInsertBill(username,b){
+  const row={id:b.id,username,name:b.name,amt:b.amt,cur:b.cur,freq:b.freq,cat:b.cat,day:b.day};
+  const{error}=await sb.from('bills').insert(row);
+  if(error)console.error('dbInsertBill',error);
+}
+async function dbDeleteBill(id){
+  const{error}=await sb.from('bills').delete().eq('id',id);
+  if(error)console.error('dbDeleteBill',error);
+}
+
+// ── Goals ──────────────────────────────────────────────────────
+async function dbListGoals(username){
+  const{data,error}=await sb.from('goals').select('*').eq('username',username);
+  if(error){console.error('dbListGoals',error);return[];}
+  return(data||[]).map(r=>({id:Number(r.id),name:r.name,emoji:r.emoji,type:r.type,amt:Number(r.amt)||0,already:Number(r.already)||0,priority:r.priority}));
+}
+async function dbInsertGoal(username,g){
+  const row={id:g.id,username,name:g.name,emoji:g.emoji,type:g.type,amt:g.amt,already:g.already,priority:g.priority};
+  const{error}=await sb.from('goals').insert(row);
+  if(error)console.error('dbInsertGoal',error);
+}
+async function dbDeleteGoal(id){
+  const{error}=await sb.from('goals').delete().eq('id',id);
+  if(error)console.error('dbDeleteGoal',error);
+}
+
+// ── Hydrate full user blob from Supabase ───────────────────────
+async function dbLoadFullUser(username){
+  const u=await dbGetUser(username);if(!u)return null;
+  const[months,bills,goals]=await Promise.all([dbListMonths(username),dbListBills(username),dbListGoals(username)]);
+  months.sort((a,b)=>monthKey(a.month,a.year)-monthKey(b.month,b.year));
+  goals.sort((a,b)=>(a.priority||99)-(b.priority||99));
+  return{name:u.name,networth:Number(u.networth)||0,income:Number(u.income)||0,egpRate:Number(u.egp_rate)||0.072,spendBudget:Number(u.spend_budget)||0,piggyBank:Number(u.piggy_bank)||0,pwHash:u.pw_hash,months,bills,goals};
+}
+
 let SESSION={username:null,isDemo:false};
-function activeData(){return SESSION.isDemo?window._demoData:getUserData(SESSION.username);}
-function saveActive(d){if(SESSION.isDemo)window._demoData=d;else saveUserData(SESSION.username,d);}
+function activeData(){return SESSION.isDemo?window._demoData:_CURRENT_USER_DATA;}
+// In-memory mirror updater. Mutation sites still call this for the live
+// render, but each one is also responsible for pushing its delta to Supabase.
+function saveActive(d){if(SESSION.isDemo)window._demoData=d;else _CURRENT_USER_DATA=d;}
 
 /* ══ DEMO ══ */
 function loadDemo(){
@@ -547,20 +646,21 @@ function loadDemo(){
 }
 
 /* ══ AUTH ══ */
-function showAuthPick(){
+async function showAuthPick(){
   ['auth-pick','auth-login-wrap','auth-register-wrap'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('auth-pick').style.display='block';
-  renderUserList();
+  await renderUserList();
 }
 function showAuthForm(type){
   ['auth-pick','auth-login-wrap','auth-register-wrap'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById(type==='register'?'auth-register-wrap':'auth-login-wrap').style.display='block';
 }
-function renderUserList(){
-  const idx=getIndex();
+async function renderUserList(){
   const el=document.getElementById('auth-user-list');
-  if(!idx.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:14px;text-align:center">No profiles yet — create one below.</div>';return;}
-  el.innerHTML=idx.map(u=>`<div class="user-list-item" onclick="pickUser('${u.username}')">
+  el.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:14px;text-align:center">Loading…</div>';
+  _USERS_INDEX=await dbListUsers();
+  if(!_USERS_INDEX.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:14px;text-align:center">No profiles yet — create one below.</div>';return;}
+  el.innerHTML=_USERS_INDEX.map(u=>`<div class="user-list-item" onclick="pickUser('${u.username}')">
     <div class="uav">${(u.name||u.username).slice(0,2).toUpperCase()}</div>
     <div><div style="font-weight:800;font-size:13px">${u.name||u.username}</div><div style="font-size:10px;color:var(--text3)">@${u.username}</div></div>
   </div>`).join('');
@@ -568,7 +668,7 @@ function renderUserList(){
 let pendingUsername='';
 function pickUser(u){
   pendingUsername=u;
-  const idx=getIndex().find(x=>x.username===u);
+  const idx=_USERS_INDEX.find(x=>x.username===u);
   document.getElementById('login-heading').textContent='Hey '+(idx?idx.name.split(' ')[0]:u)+', welcome back 👋';
   document.getElementById('login-pw').value='';document.getElementById('login-err').textContent='';
   showAuthForm('login');setTimeout(()=>document.getElementById('login-pw').focus(),100);
@@ -576,11 +676,17 @@ function pickUser(u){
 async function doLogin(){
   const pw=document.getElementById('login-pw').value;
   if(!pw){document.getElementById('login-err').textContent='Password?';return;}
-  const data=getUserData(pendingUsername);
-  if(!data){document.getElementById('login-err').textContent='Profile not found.';return;}
+  const errEl=document.getElementById('login-err');errEl.textContent='Checking…';
+  const u=await dbGetUser(pendingUsername);
+  if(!u){errEl.textContent='Profile not found.';return;}
   const hash=await sha256(pw);
-  if(hash!==data.pwHash){document.getElementById('login-err').textContent='That\'s not right. Try again.';return;}
-  SESSION={username:pendingUsername,isDemo:false};launchApp();
+  if(hash!==u.pw_hash){errEl.textContent='That\'s not right. Try again.';return;}
+  errEl.textContent='Loading your data…';
+  const full=await dbLoadFullUser(pendingUsername);
+  if(!full){errEl.textContent='Couldn\'t load your data. Try again.';return;}
+  _CURRENT_USER_DATA=full;
+  SESSION={username:pendingUsername,isDemo:false};
+  errEl.textContent='';launchApp();
 }
 async function doRegister(){
   const name=document.getElementById('reg-name').value.trim();
@@ -591,12 +697,17 @@ async function doRegister(){
   const errEl=document.getElementById('reg-err');
   if(!name||!username||!pw){errEl.textContent='Fill everything in.';return;}
   if(!pwStrong(pw)){errEl.textContent='Password needs: 8+ chars, uppercase, number, symbol.';return;}
-  const idx=getIndex();
-  if(idx.find(u=>u.username===username)){errEl.textContent='That username\'s taken.';return;}
+  errEl.textContent='Checking…';
+  const existing=await dbGetUser(username);
+  if(existing){errEl.textContent='That username\'s taken.';return;}
   const hash=await sha256(pw);
   const data={...newUserData(name,nw,inc),pwHash:hash};
-  saveUserData(username,data);saveIndex([...idx,{username,name}]);
-  SESSION={username,isDemo:false};launchApp();
+  try{await dbCreateUser(username,data);}
+  catch(e){errEl.textContent='Couldn\'t create profile — try a different username.';return;}
+  _USERS_INDEX=[..._USERS_INDEX,{username,name}];
+  _CURRENT_USER_DATA=data;
+  SESSION={username,isDemo:false};
+  errEl.textContent='';launchApp();
 }
 
 /* ══ ADD PROFILE FROM APP (no sign-out) ══ */
@@ -623,12 +734,16 @@ window.doRegister=async function(){
   const errEl=document.getElementById('reg-err');
   if(!name||!username||!pw){errEl.textContent='Fill everything in.';return;}
   if(!pwStrong(pw)){errEl.textContent='Password needs: 8+ chars, uppercase, number, symbol.';return;}
-  const idx=getIndex();
-  if(idx.find(u=>u.username===username)){errEl.textContent='That username\'s taken.';return;}
+  errEl.textContent='Checking…';
+  const existing=await dbGetUser(username);
+  if(existing){errEl.textContent='That username\'s taken.';return;}
   const hash=await sha256(pw);
   const data={...newUserData(name,nw,inc),pwHash:hash};
-  saveUserData(username,data);saveIndex([...idx,{username,name}]);
+  try{await dbCreateUser(username,data);}
+  catch(e){errEl.textContent='Couldn\'t create profile — try again.';return;}
+  _USERS_INDEX=[..._USERS_INDEX,{username,name}];
   window._addingFromApp=false;
+  errEl.textContent='';
   // Return to current session
   document.getElementById('auth-screen').style.display='none';
   renderDropList();
@@ -657,10 +772,15 @@ async function saveEditProfile(){
   const newPw=document.getElementById('ep-pw').value;
   if(!name){document.getElementById('ep-err').textContent='Name?';return;}
   if(newPw&&!pwStrong(newPw)){document.getElementById('ep-err').textContent='Password needs: 8+ chars, uppercase, number, symbol.';return;}
-  d.name=name;d.income=income;d.networth=nw;d.egpRate=rate;d.spendBudget=budget;
-  if(newPw)d.pwHash=await sha256(newPw);
+  const fields={name,income,networth:nw,egpRate:rate,spendBudget:budget};
+  if(newPw)fields.pwHash=await sha256(newPw);
+  Object.assign(d,fields);
   saveActive(d);
-  if(!SESSION.isDemo){const idx=getIndex();const i=idx.findIndex(u=>u.username===SESSION.username);if(i>-1){idx[i].name=name;saveIndex(idx);}}
+  if(!SESSION.isDemo){
+    await dbUpdateUserMeta(SESSION.username,fields);
+    const i=_USERS_INDEX.findIndex(u=>u.username===SESSION.username);
+    if(i>-1)_USERS_INDEX[i].name=name;
+  }
   closeEditModal();renderAll();renderChip();
 }
 
@@ -672,16 +792,19 @@ function launchApp(){
 }
 function logout(){
   SESSION={username:null,isDemo:false};window._addingFromApp=false;
+  _CURRENT_USER_DATA=null;
   document.getElementById('app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
   showAuthPick();closeDrop();
 }
-function confirmDeleteUser(){
+async function confirmDeleteUser(){
   closeDrop();
   if(SESSION.isDemo){alert('Can\'t delete the demo profile.');return;}
   const d=activeData();
   if(!confirm('Delete "'+(d?d.name:SESSION.username)+'"? Gone forever.'))return;
-  deleteUserData(SESSION.username);logout();
+  await dbDeleteUser(SESSION.username); // FK cascade removes months/bills/goals
+  _USERS_INDEX=_USERS_INDEX.filter(x=>x.username!==SESSION.username);
+  logout();
 }
 
 /* ══ CLOCK ══ */
@@ -705,7 +828,7 @@ function renderChip(){
   document.getElementById('demo-chip-badge').innerHTML=SESSION.isDemo?'<span class="demo-badge">DEMO</span>':'';
 }
 function renderDropList(){
-  const idx=SESSION.isDemo?[]:getIndex();
+  const idx=SESSION.isDemo?[]:_USERS_INDEX;
   document.getElementById('drop-list').innerHTML=idx.map(u=>`
     <div class="di${u.username===SESSION.username?' active':''}" onclick="switchUser('${u.username}')">
       <div class="di-av${u.username===SESSION.username?' g':''}">${(u.name||u.username).slice(0,2).toUpperCase()}</div>
@@ -718,7 +841,7 @@ function switchUser(username){
   document.getElementById('app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
   showAuthForm('login');
-  const idx=getIndex().find(u=>u.username===username);
+  const idx=_USERS_INDEX.find(u=>u.username===username);
   document.getElementById('login-heading').textContent='Hey '+(idx?idx.name.split(' ')[0]:username)+', welcome back 👋';
   document.getElementById('login-pw').value='';document.getElementById('login-err').textContent='';
 }
@@ -908,7 +1031,7 @@ function cancelEdit(){
   document.getElementById('t-cancel-btn').style.display='none';document.getElementById('t-save-btn').textContent='Save it';
   ['t-inc','t-prev','t-curr'].forEach(id=>document.getElementById(id).classList.remove('edit-hi'));
 }
-function saveMonth(){
+async function saveMonth(){
   const data=activeData();if(!data)return;
   const msel=parseInt(document.getElementById('t-month-sel').value)||0;
   const yr=parseInt(document.getElementById('t-year').value)||uaeNow().getFullYear();
@@ -919,23 +1042,43 @@ function saveMonth(){
   if(!msel||!inc){document.getElementById('t-msg').style.color='var(--red)';document.getElementById('t-msg').textContent='Need a month and income at least.';return;}
   const saved=curr-prev;const spent=inc-saved;const rate=inc>0?(saved/inc*100):0;
   const exp=netSavings(data);if(exp>0&&saved>exp)data.piggyBank=(data.piggyBank||0)+(saved-exp);
+  let savedMonth=null;const removedIds=[];
   if(editingMonthId){
     const idx=data.months.findIndex(m=>m.id===editingMonthId);
-    if(idx>-1)data.months[idx]={...data.months[idx],month:msel,year:yr,income:inc,prev,curr,saved,spent,rate,incDate};
+    if(idx>-1){data.months[idx]={...data.months[idx],month:msel,year:yr,income:inc,prev,curr,saved,spent,rate,incDate};savedMonth=data.months[idx];}
   }else{
-    if(data.months.find(m=>m.month===msel&&m.year===yr)){if(!confirm(MONTHS[msel-1]+' '+yr+' already logged. Overwrite?'))return;data.months=data.months.filter(m=>!(m.month===msel&&m.year===yr));}
-    data.months.push({id:Date.now(),month:msel,year:yr,income:inc,prev,curr,saved,spent,rate,incDate});
+    const dupe=data.months.find(m=>m.month===msel&&m.year===yr);
+    if(dupe){
+      if(!confirm(MONTHS[msel-1]+' '+yr+' already logged. Overwrite?'))return;
+      data.months.filter(m=>m.month===msel&&m.year===yr).forEach(m=>removedIds.push(m.id));
+      data.months=data.months.filter(m=>!(m.month===msel&&m.year===yr));
+    }
+    savedMonth={id:Date.now(),month:msel,year:yr,income:inc,prev,curr,saved,spent,rate,incDate};
+    data.months.push(savedMonth);
   }
   data.months.sort((a,b)=>monthKey(a.month,a.year)-monthKey(b.month,b.year));
   if(curr>0)data.networth=curr;data.income=inc;saveActive(data);
+  if(!SESSION.isDemo){
+    for(const id of removedIds)await dbDeleteMonth(id);
+    if(savedMonth)await dbUpsertMonth(SESSION.username,savedMonth);
+    await dbUpdateUserMeta(SESSION.username,{networth:data.networth,income:data.income,piggyBank:data.piggyBank});
+  }
   cancelEdit();document.getElementById('t-msg').style.color='var(--green)';document.getElementById('t-msg').textContent='Done 👊';
   setTimeout(()=>document.getElementById('t-msg').textContent='',2000);renderAll();
 }
-function deleteMonth(id){const d=activeData();d.months=d.months.filter(m=>m.id!==id);saveActive(d);renderAll();}
-function clearHistory(){const d=activeData();d.months=[];saveActive(d);renderAll();}
+async function deleteMonth(id){
+  const d=activeData();d.months=d.months.filter(m=>m.id!==id);saveActive(d);
+  if(!SESSION.isDemo)await dbDeleteMonth(id);
+  renderAll();
+}
+async function clearHistory(){
+  const d=activeData();d.months=[];saveActive(d);
+  if(!SESSION.isDemo)await dbDeleteAllMonths(SESSION.username);
+  renderAll();
+}
 
 /* ══ BILLS ══ */
-function addBill(){
+async function addBill(){
   const data=activeData();if(!data)return;
   const name=document.getElementById('b-name').value.trim();
   const amt=parseFloat(document.getElementById('b-amt').value)||0;
@@ -945,13 +1088,29 @@ function addBill(){
   const day=parseInt(document.getElementById('b-day').value)||null;
   if(!name||!amt)return;
   if(!data.bills)data.bills=[];
-  data.bills.push({id:Date.now(),name,amt,cur,freq,cat,day});
+  const bill={id:Date.now(),name,amt,cur,freq,cat,day};
+  data.bills.push(bill);
   saveActive(data);document.getElementById('b-name').value='';document.getElementById('b-amt').value='';document.getElementById('b-day').value='';
+  if(!SESSION.isDemo)await dbInsertBill(SESSION.username,bill);
   renderAll();
 }
-function deleteBill(id){const d=activeData();d.bills=d.bills.filter(b=>b.id!==id);saveActive(d);renderAll();}
-function saveRate(){const d=activeData();if(!d)return;d.egpRate=parseFloat(document.getElementById('b-rate').value)||0.072;saveActive(d);renderAll();}
-function saveSpendBudget(){const d=activeData();if(!d)return;d.spendBudget=parseFloat(document.getElementById('sp-budget').value)||0;saveActive(d);renderAll();}
+async function deleteBill(id){
+  const d=activeData();d.bills=d.bills.filter(b=>b.id!==id);saveActive(d);
+  if(!SESSION.isDemo)await dbDeleteBill(id);
+  renderAll();
+}
+async function saveRate(){
+  const d=activeData();if(!d)return;
+  d.egpRate=parseFloat(document.getElementById('b-rate').value)||0.072;saveActive(d);
+  if(!SESSION.isDemo)await dbUpdateUserMeta(SESSION.username,{egpRate:d.egpRate});
+  renderAll();
+}
+async function saveSpendBudget(){
+  const d=activeData();if(!d)return;
+  d.spendBudget=parseFloat(document.getElementById('sp-budget').value)||0;saveActive(d);
+  if(!SESSION.isDemo)await dbUpdateUserMeta(SESSION.username,{spendBudget:d.spendBudget});
+  renderAll();
+}
 
 /* ══ GOALS DB ══ */
 const GOAL_DB={
@@ -1031,7 +1190,7 @@ function useEstimate(){
   document.getElementById('ga-amt').value=mid;document.getElementById('ga-name').value=_pendingMatch.name;
   document.getElementById('ga-emoji').value=_pendingMatch.emoji;document.getElementById('ga-amt').focus();
 }
-function confirmAddGoal(){
+async function confirmAddGoal(){
   const data=activeData();if(!data)return;
   const name=document.getElementById('ga-name').value.trim();
   const amt=parseFloat(document.getElementById('ga-amt').value)||0;
@@ -1041,14 +1200,20 @@ function confirmAddGoal(){
   const emoji=document.getElementById('ga-emoji').value.trim()||'🎯';
   if(!name||!amt){document.getElementById('ga-msg').textContent='Need a target amount.';return;}
   if(!data.goals)data.goals=[];
-  data.goals.push({id:Date.now(),name,amt,already,type,emoji,priority});
+  const goal={id:Date.now(),name,amt,already,type,emoji,priority};
+  data.goals.push(goal);
   data.goals.sort((a,b)=>(a.priority||99)-(b.priority||99));
   saveActive(data);
+  if(!SESSION.isDemo)await dbInsertGoal(SESSION.username,goal);
   document.getElementById('goal-query').value='';document.getElementById('goal-response').style.display='none';
   document.getElementById('goal-confirm-form').style.display='none';document.getElementById('ga-msg').textContent='';
   renderAll();
 }
-function deleteGoal(id){const d=activeData();d.goals=d.goals.filter(g=>g.id!==id);saveActive(d);renderAll();}
+async function deleteGoal(id){
+  const d=activeData();d.goals=d.goals.filter(g=>g.id!==id);saveActive(d);
+  if(!SESSION.isDemo)await dbDeleteGoal(id);
+  renderAll();
+}
 
 /* ══ CSV ══ */
 function exportCSV(){
