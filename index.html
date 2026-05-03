@@ -180,6 +180,54 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @media(max-width:520px){.c2,.c3{grid-template-columns:1fr}.g4{grid-template-columns:1fr 1fr}.fi-row{grid-template-columns:1fr}}
+
+/* ── THEMES ── */
+[data-theme="midnight"]{
+  --bg:#000000;--bg2:#0a0a0a;--bg3:#111111;--bg4:#1a1a2e;
+  --green:#00bfff;--green2:#009acc;--glow:rgba(0,191,255,0.12);
+  --text:#e8f4ff;--text2:#6a8aaa;--text3:#2a4a6a;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+}
+[data-theme="sand"]{
+  --bg:#1a1208;--bg2:#221a0a;--bg3:#2c2210;--bg4:#3a2e18;
+  --green:#d4a843;--green2:#b8922f;--glow:rgba(212,168,67,0.12);
+  --text:#f5e6c8;--text2:#9a8060;--text3:#5a4830;
+  --border:rgba(212,168,67,0.12);--border2:rgba(212,168,67,0.22);
+  --amber:#e8b84b;--blue:#7abfcf;
+}
+[data-theme="light"]{
+  --bg:#f4f6f8;--bg2:#ffffff;--bg3:#edf0f3;--bg4:#dde3ea;
+  --green:#00a86b;--green2:#008a57;--glow:rgba(0,168,107,0.1);
+  --text:#0d1b2a;--text2:#556677;--text3:#9aaabb;
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.14);
+  --red:#e53935;--amber:#f59f00;--blue:#1976d2;--purple:#7b2fbe;
+}
+[data-theme="neon"]{
+  --bg:#080410;--bg2:#0f0820;--bg3:#160b30;--bg4:#1e1040;
+  --green:#39ff14;--green2:#2edd10;--glow:rgba(57,255,20,0.12);
+  --text:#f0e8ff;--text2:#9a80cc;--text3:#4a3088;
+  --border:rgba(57,255,20,0.1);--border2:rgba(57,255,20,0.2);
+  --amber:#ff6b35;--blue:#bf5fff;--purple:#ff2d78;
+}
+
+/* Theme picker */
+.theme-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px 12px}
+.theme-dot{width:100%;aspect-ratio:1;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:.2s;position:relative}
+.theme-dot.active::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:white}
+.theme-dot:hover{transform:scale(1.1)}
+
+/* Buy It Now */
+.bin-wrap{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.bin-input-row{display:flex;gap:8px;margin-bottom:8px}
+.bin-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;transition:.2s}
+.bin-input:focus{border-color:var(--green);box-shadow:0 0 0 2px var(--glow)}
+.bin-result{font-size:13px;line-height:1.6;padding:10px 14px;border-radius:9px;display:none}
+.bin-yes{background:rgba(0,224,150,.07);border:1px solid rgba(0,224,150,.2);color:var(--text)}
+.bin-no{background:rgba(255,82,82,.07);border:1px solid rgba(255,82,82,.2);color:var(--text)}
+.bin-maybe{background:rgba(255,204,0,.07);border:1px solid rgba(255,204,0,.2);color:var(--text)}
+
+/* Number counter animation */
+.count-up{transition:all .6s cubic-bezier(.4,0,.2,1)}
 </style>
 </head>
 <body>
@@ -275,6 +323,15 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
         <div class="di" onclick="openAddProfileModal()"><div class="di-av">+</div><span>Add another profile</span></div>
         <div class="di di-red" onclick="confirmDeleteUser()"><div class="di-av" style="background:rgba(255,82,82,.1);color:var(--red)">✕</div><span>Delete this profile</span></div>
         <hr>
+        <div style="padding:6px 12px;font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.1em;text-transform:uppercase">Theme</div>
+        <div class="theme-grid">
+          <div class="theme-dot" style="background:#060e1a;border-color:rgba(0,224,150,.4)" onclick="setTheme('dark')" id="td-dark" title="Dark"></div>
+          <div class="theme-dot" style="background:#000000;border-color:rgba(0,191,255,.4)" onclick="setTheme('midnight')" id="td-midnight" title="Midnight"></div>
+          <div class="theme-dot" style="background:linear-gradient(135deg,#1a1208,#3a2e18);border-color:rgba(212,168,67,.4)" onclick="setTheme('sand')" id="td-sand" title="Sand"></div>
+          <div class="theme-dot" style="background:#f4f6f8;border-color:rgba(0,168,107,.4)" onclick="setTheme('light')" id="td-light" title="Light"></div>
+          <div class="theme-dot" style="background:#080410;border-color:rgba(57,255,20,.4)" onclick="setTheme('neon')" id="td-neon" title="Neon"></div>
+        </div>
+        <hr>
         <div class="di" onclick="logout()"><div class="di-av">→</div><span>Sign out</span></div>
       </div>
     </div>
@@ -302,6 +359,16 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
     <div id="demo-banner"></div>
     <div id="dash-alert" style="margin-bottom:10px"></div>
 
+    <!-- BUY IT NOW -->
+    <div class="bin-wrap">
+      <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">💬 Can I buy it?</div>
+      <div class="bin-input-row">
+        <input class="bin-input" id="bin-input" placeholder="e.g. monitor for 800 AED, Vietnam trip 6000 AED…" onkeydown="if(event.key==='Enter')checkBuyIt()"/>
+        <button class="btn bp bs" onclick="checkBuyIt()">Ask →</button>
+      </div>
+      <div class="bin-result" id="bin-result"></div>
+    </div>
+
     <div class="acc-wrap">
       <!-- 1. MY BALANCE -->
       <div class="acc" id="acc-balance">
@@ -315,6 +382,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
         <div class="acc-body">
           <div class="acc-inner" style="padding-top:16px">
             <div id="live-balance-content"><div style="font-size:11px;color:var(--text3)">Log a month to see your live balance.</div></div>
+            <div id="smart-floor-content" style="margin-top:12px"></div>
           </div>
         </div>
       </div>
@@ -1366,7 +1434,26 @@ function renderDashboard(){
     lbEl.innerHTML='<div style="font-size:11px;color:var(--text3)">Log a month to see your live balance here.</div>';
   }
 
-  // Spending pulse
+  // Smart Floor
+  const sfEl=document.getElementById('smart-floor-content');
+  if(sfEl&&bills>0){
+    const floor=computeSmartFloor(data);
+    const bal=data.networth||0;
+    const above=bal-floor;
+    const months=bills>0?Math.floor(bal/bills):0;
+    const statusColor=above>0?'var(--green)':'var(--red)';
+    const statusText=above>0?`AED ${fmt(above)} above your floor — free to use`:`AED ${fmt(Math.abs(above))} below suggested floor`;
+    sfEl.innerHTML=`
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+        <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">🛡️ Smart Floor</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
+          <div style="font-size:20px;font-weight:900;color:${statusColor}">${fA(floor)}</div>
+          <div style="font-size:10px;color:var(--text2)">suggested minimum</div>
+        </div>
+        <div style="font-size:11px;color:${statusColor};font-weight:700;margin-bottom:4px">${statusText}</div>
+        <div style="font-size:10px;color:var(--text3)">Based on 3 months fixed bills + 1 month income buffer · Your current balance covers <strong style="color:var(--text2)">${months} months</strong> of fixed expenses</div>
+      </div>`;
+  }
   const pulseEl=document.getElementById('spending-pulse-content');
   const ms=data.months;
   if(ms.length&&(data.spendBudget||0)>0){
@@ -1666,7 +1753,108 @@ onEnterNext('b-name','b-amt');onEnterNext('b-amt','b-day');onEnter('b-day',addBi
 onEnter('goal-query',estimateGoal);onEnterNext('ga-amt','ga-saved');onEnter('ga-saved',confirmAddGoal);
 onEnterNext('ep-name','ep-income');onEnterNext('ep-income','ep-nw');onEnterNext('ep-nw','ep-pw');onEnter('ep-pw',saveEditProfile);
 
+/* ══ THEMES ══ */
+const THEMES=['dark','midnight','sand','light','neon'];
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t==='dark'?'':t);
+  localStorage.setItem('wa_theme',t);
+  closeDrop();
+  THEMES.forEach(x=>{
+    const el=document.getElementById('td-'+x);
+    if(el)el.classList.toggle('active',x===t);
+  });
+}
+function loadTheme(){
+  const t=localStorage.getItem('wa_theme')||'dark';
+  setTheme(t);
+}
+
+/* ══ BUY IT NOW ══ */
+function checkBuyIt(){
+  const input=document.getElementById('bin-input').value.trim();
+  if(!input)return;
+  const data=activeData();
+  const resEl=document.getElementById('bin-result');
+  resEl.style.display='block';
+
+  // Extract amount from input
+  const numMatch=input.match(/(\d[\d,]*(?:\.\d+)?)/);
+  const amount=numMatch?parseFloat(numMatch[1].replace(/,/g,'')):null;
+
+  if(!amount){
+    resEl.className='bin-result bin-maybe';
+    resEl.innerHTML='💬 I need an amount — try something like "monitor for 800 AED"';
+    return;
+  }
+
+  const balance=data.networth||0;
+  const income=avgIncome(data);
+  const bills=monthlyBillsTotal(data);
+  const surplus=Math.max(0,income-bills-(data.spendBudget||0));
+
+  // Smart floor — 3 months of fixed expenses
+  const floor=bills*3;
+  const safeBalance=balance-floor;
+  const monthsSurvive=bills>0?Math.floor(balance/bills):99;
+
+  let cls,msg;
+
+  if(amount<=surplus){
+    // Fits in monthly surplus — easy yes
+    cls='bin-yes';
+    msg=`✅ <strong>Yes, comfortably.</strong> That's ${((amount/surplus)*100).toFixed(0)}% of your monthly surplus. Get it.`;
+  } else if(amount<=safeBalance*0.3){
+    // Under 30% of safe balance
+    cls='bin-yes';
+    msg=`✅ <strong>Yes.</strong> You have <strong>AED ${fmt(safeBalance)}</strong> above your safety floor. This is ${((amount/safeBalance)*100).toFixed(0)}% of that — fine to spend.`;
+  } else if(amount<=safeBalance*0.6){
+    // Under 60% of safe balance
+    cls='bin-maybe';
+    msg=`⚠️ <strong>Yes, but think about it.</strong> That's a decent chunk of your available balance. You'll still have AED ${fmt(safeBalance-amount)} above your floor after.`;
+  } else if(amount<=safeBalance){
+    // Eats into most of safe balance
+    cls='bin-maybe';
+    msg=`⚠️ <strong>Technically yes, but not ideal.</strong> After buying this you'd only have AED ${fmt(safeBalance-amount)} above your safety floor (${monthsSurvive} months runway). Can it wait for next salary?`;
+  } else if(amount<=balance){
+    // Dips below floor
+    cls='bin-no';
+    msg=`❌ <strong>Not right now.</strong> This dips into your safety floor. Your runway drops to ${Math.floor((balance-amount)/bills)} months. Wait for salary to hit first.`;
+  } else {
+    cls='bin-no';
+    msg=`❌ <strong>No.</strong> That's more than your current balance. Not possible right now.`;
+  }
+
+  if(surplus>0&&amount>surplus){
+    msg+=`<br><span style="font-size:11px;color:var(--text2);margin-top:4px;display:block">💡 At your current surplus (AED ${fmt(surplus)}/mo) you could save for this in ${Math.ceil(amount/surplus)} months.</span>`;
+  }
+
+  resEl.className='bin-result '+cls;
+  resEl.innerHTML=msg;
+}
+
+/* ══ SMART FLOOR ══ */
+function computeSmartFloor(data){
+  const bills=monthlyBillsTotal(data);
+  const income=avgIncome(data);
+  // 3 months fixed bills + 1 month income buffer
+  return Math.round(bills*3+income);
+}
+
+/* ══ COUNTER ANIMATION ══ */
+function animateCount(el,target,prefix='',suffix='',duration=600){
+  const start=0;const startTime=performance.now();
+  const step=now=>{
+    const elapsed=now-startTime;const progress=Math.min(elapsed/duration,1);
+    const ease=1-Math.pow(1-progress,3);
+    const current=Math.round(start+(target-start)*ease);
+    el.textContent=prefix+new Intl.NumberFormat('en-AE',{minimumFractionDigits:0,maximumFractionDigits:0}).format(current)+suffix;
+    if(progress<1)requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 /* ══ BOOT ══ */
 showAuthPick();
+loadTheme();
 </script>
 </body></html>
